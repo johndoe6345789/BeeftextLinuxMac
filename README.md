@@ -2,7 +2,7 @@
 
 ![Beeftext](https://raw.githubusercontent.com/wiki/xmichelo/Beeftext/assets/images/Screenshot.png)
 
-Beeftext is a text snippet management tool for Windows, inspired by [TextExpander].
+Beeftext is a cross-platform text snippet management tool for Windows, macOS, and Linux, inspired by [TextExpander].
 
 > [!important]  
 > Beeftext is now in maintenance mode. No new feature will be added, but fixes for major issues will be provided.
@@ -46,10 +46,20 @@ Developer documentation can be extracted using the [Doxygen] documentation tool.
 In order to build Beeftext from sources you will need:
 
 - The [Beeftext] source code. The git repository includes the [XMiLib] library as a submodule.
+- The [Qt] framework. Beeftext is generally built using the latest version of the library.
+- [CMake] for building the project.
+
+### Platform-Specific Requirements
+
+#### Windows
 - [Visual Studio 2022]. The Community Edition is available for free.
-- The [Qt] framework. Beeftext is generally built using the latest version of the library. Beeftext uses the 64-bit version compiled for the most recent version of Visual Studio.
 - The [Qt Visual Studio Tools]. This add-on can be installed from the `Extensions and Updates` tool built into Visual Studio.
 - If you plan to generate the installer for Beeftext, you will also need [NSIS].
+
+#### macOS / Linux
+- A C++ compiler (GCC or Clang)
+- CMake 3.10 or higher
+- Qt development libraries
 
 Detailed build instructions are not available at the moment.
 
@@ -65,6 +75,7 @@ Detailed build instructions are not available at the moment.
 [OpenSSL and SSLeay licenses]:https://www.openssl.org/source/license.html
 [Doxygen]: http://www.stack.nl/~dimitri/doxygen/
 [Beeftext]: https://github.com/xmichelo/Beeftext
+[CMake]: https://cmake.org/
 [Visual Studio 2022]: https://www.visualstudio.com/vs/community/
 [Qt Visual Studio Tools]: https://marketplace.visualstudio.com/items?itemName=TheQtCompany.QtVisualStudioTools2022
 [XMiLib]: https://github.com/xmichelo/XMiLib
