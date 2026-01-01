@@ -91,7 +91,10 @@ QMenu *ComboEditor::createComboVariableMenu() {
     action = new QAction(tr("En&vironment Variable"), this);
     connect(action, &QAction::triggered, [this]() { this->insertTextInSnippetEdit("#{envVar:}", true); });
     menu->addAction(action);
-    action = new QAction(tr("&PowerShell Script"), this);
+    action = new QAction(tr("&Script"), this);
+    connect(action, &QAction::triggered, this, &ComboEditor::insertScriptVariable);
+    menu->addAction(action);
+    action = new QAction(tr("&PowerShell Script (legacy)"), this);
     connect(action, &QAction::triggered, this, &ComboEditor::insertPowershellVariable);
     menu->addAction(action);
     action = new QAction(tr("User &Input"), this);
@@ -131,6 +134,21 @@ void ComboEditor::onEditorContextMenuRequested(QPoint const &pos) {
     menu->addSeparator();
     menu->addMenu(this->createComboVariableMenu());
     menu->exec(this->viewport()->mapToGlobal(pos));
+}
+
+
+//****************************************************************************************************************************************************
+//
+//****************************************************************************************************************************************************
+void ComboEditor::insertScriptVariable() {
+#ifdef Q_OS_WIN
+    QString const filter = tr("Script files (*.ps1 *.bat *.cmd);;PowerShell scripts (*.ps1);;Batch files (*.bat *.cmd);;All files (*.*)");
+#else
+    QString const filter = tr("Script files (*.sh *.bash *.zsh);;Shell scripts (*.sh);;Bash scripts (*.bash);;Zsh scripts (*.zsh);;All files (*.*)");
+#endif
+    QString const path = QFileDialog::getOpenFileName(this, tr("Select script file"), QString(), filter);
+    if (!path.isEmpty())
+        this->insertTextInSnippetEdit(QString("#{script:%1}").arg(path));
 }
 
 

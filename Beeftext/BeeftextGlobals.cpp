@@ -83,8 +83,17 @@ ProcessListManager &sensitiveApplications() {
       copy-paste using Ctrl+V.</p><p>List applications using their process name (e.g, notepad.exe). Wildcards 
       are accepted.</p></body></html>)"));
     manager->setFilePath(sensitiveApplicationsFilePath());
-    if (!manager->load())
-        manager->addProcesses({ "mintty.exe", "putty.exe", "powershell.exe", "kitty*.exe", "ConEmu*.exe" });
+    if (!manager->load()) {
+#ifdef Q_OS_WIN
+        manager->addProcesses({ "mintty.exe", "putty.exe", "powershell.exe", "pwsh.exe", "kitty*.exe", "ConEmu*.exe", "cmd.exe" });
+#elif defined(Q_OS_MACOS)
+        manager->addProcesses({ "Terminal", "iTerm*", "kitty*", "Alacritty" });
+#elif defined(Q_OS_LINUX)
+        manager->addProcesses({ "gnome-terminal*", "konsole", "xterm", "kitty*", "alacritty", "tilix" });
+#else
+        manager->addProcesses({ "xterm", "terminal" });
+#endif
+    }
 
     return *manager;
 }

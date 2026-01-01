@@ -155,7 +155,7 @@
      <item>
       <widget class="QCheckBox" name="checkUseCustomPowershellVersion">
        <property name="text">
-        <string>Use custom PowerShell version</string>
+        <string>Use custom script interpreter</string>
        </property>
       </widget>
      </item>

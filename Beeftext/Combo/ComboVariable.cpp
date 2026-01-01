@@ -28,7 +28,8 @@ enum class ECaseChange {
 QString const kCustomDateTimeVariable = "dateTime:"; ///< The dateTime variable.
 QString const kInputVariable = "input:"; ///< The input variable.
 QString const kEnvVarVariable = "envVar:"; ///< The envVar variable.
-QString const kPowershellVariable = "powershell:"; ///< The execute variable.
+QString const kPowershellVariable = "powershell:"; ///< The execute variable (legacy, Windows-specific).
+QString const kScriptVariable = "script:"; ///< The script execution variable (cross-platform).
 
 
 //****************************************************************************************************************************************************
@@ -283,17 +284,36 @@ QString evaluateEnvVarVariable(QString const &variable) {
 
 
 //****************************************************************************************************************************************************
-/// \brief Evaluate an #{execute:} variable.
+/// \brief Determine the default script interpreter for the platform
+/// \return The path to the default script interpreter with its arguments
+//****************************************************************************************************************************************************
+QPair<QString, QStringList> getDefaultScriptInterpreter(QString const &scriptPath) {
+#ifdef Q_OS_WIN
+    // On Windows, use PowerShell by default
+    return qMakePair(QString("powershell.exe"), QStringList{ "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", scriptPath });
+#elif defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
+    // On Unix-like systems (Mac/Linux), use bash
+    return qMakePair(QString("/bin/bash"), QStringList{ scriptPath });
+#else
+    // Fallback to sh for other platforms
+    return qMakePair(QString("/bin/sh"), QStringList{ scriptPath });
+#endif
+}
+
+
+//****************************************************************************************************************************************************
+/// \brief Evaluate an #{script:} or #{powershell:} variable.
 ///
 /// \param[in] variable The variable, without the enclosing #{}.
+/// \param[in] variableName The variable name (e.g., "script" or "powershell")
 /// \return The result of evaluating the variable.
 //****************************************************************************************************************************************************
-QString evaluatePowershellVariable(QString const &variable) {
+QString evaluateScriptVariable(QString const &variable, QString const &variableName) {
     try {
-        QRegularExpression const rx(QString(R"(^%1(.+?)(?>:(\d+))?$)").arg(kPowershellVariable));
+        QRegularExpression const rx(QString(R"(^%1(.+?)(?>:(\d+))?$)").arg(variableName));
         QRegularExpressionMatch const match = rx.match(variable);
         if (!match.hasMatch())
-            throw xmilib::Exception("An unexpected error occurred while parsing a powershell variable.");
+            throw xmilib::Exception(QString("An unexpected error occurred while parsing a %1 variable.").arg(variableName));
         QString const path = match.captured(1);
         if (!QFileInfo(path).exists())
             throw xmilib::Exception(QString("the file `%1` does not exist.").arg(path));
@@ -302,22 +322,41 @@ QString evaluatePowershellVariable(QString const &variable) {
         bool ok = true;
         qint32 const timeout = timeoutStr.isEmpty() ? 10000 : timeoutStr.toInt(&ok);
         if (!ok)
-            throw xmilib::Exception("An unexpected error occurred while parsing the delay of a PowerShell variable.");
+            throw xmilib::Exception(QString("An unexpected error occurred while parsing the delay of a %1 variable.").arg(variableName));
 
         PreferencesManager const &prefs = PreferencesManager::instance();
-        QString exePath = "powershell.exe";
+        QString exePath;
+        QStringList args;
+        
+        // Check if user has configured a custom script interpreter
         if (prefs.useCustomPowershellVersion()) {
             QString const customPath = prefs.customPowershellPath();
             QFileInfo const fi(customPath);
-            if (fi.exists() && fi.isExecutable())
+            if (fi.exists() && fi.isExecutable()) {
                 exePath = customPath;
-            else
-                globals::debugLog().addWarning(QString("The custom PowerShell executable '%1' is invalid or not "
-                                                       "executable.").arg(QDir::toNativeSeparators(customPath)));
+                // If it's PowerShell (by name), use PowerShell-specific arguments
+                if (exePath.contains("powershell", Qt::CaseInsensitive) || exePath.contains("pwsh", Qt::CaseInsensitive)) {
+                    args = { "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", path };
+                } else {
+                    // For other interpreters, just pass the script path
+                    args = { path };
+                }
+            } else {
+                globals::debugLog().addWarning(QString("The custom script interpreter '%1' is invalid or not "
+                                                       "executable. Using default interpreter.").arg(QDir::toNativeSeparators(customPath)));
+                auto defaultInterpreter = getDefaultScriptInterpreter(path);
+                exePath = defaultInterpreter.first;
+                args = defaultInterpreter.second;
+            }
+        } else {
+            // Use platform-specific default
+            auto defaultInterpreter = getDefaultScriptInterpreter(path);
+            exePath = defaultInterpreter.first;
+            args = defaultInterpreter.second;
         }
 
         QProcess p;
-        p.start(exePath, { "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", path });
+        p.start(exePath, args);
         if (!p.waitForFinished(timeout < 1 ? -1 : timeout))
             throw xmilib::Exception(QString("the script `%1` timed out.").arg(path));
 
@@ -327,10 +366,21 @@ QString evaluatePowershellVariable(QString const &variable) {
         return QString::fromUtf8(p.readAllStandardOutput());
     }
     catch (xmilib::Exception const &e) {
-        globals::debugLog().addWarning(QString("Evaluation of #{%1} variable failed: %2").arg(kPowershellVariable)
+        globals::debugLog().addWarning(QString("Evaluation of #{%1:} variable failed: %2").arg(variableName)
             .arg(e.qwhat()));
         return QString();
     }
+}
+
+
+//****************************************************************************************************************************************************
+/// \brief Evaluate an #{powershell:} variable (legacy, calls evaluateScriptVariable).
+///
+/// \param[in] variable The variable, without the enclosing #{}.
+/// \return The result of evaluating the variable.
+//****************************************************************************************************************************************************
+QString evaluatePowershellVariable(QString const &variable) {
+    return evaluateScriptVariable(variable, kPowershellVariable);
 }
 
 
@@ -386,6 +436,9 @@ QString evaluateVariable(QString const &variable, QSet<QString> const &forbidden
 
     if (variable.startsWith(kEnvVarVariable))
         return evaluateEnvVarVariable(variable);
+
+    if (variable.startsWith(kScriptVariable))
+        return evaluateScriptVariable(variable, kScriptVariable);
 
     if (variable.startsWith(kPowershellVariable))
         return evaluatePowershellVariable(variable);
