@@ -315,11 +315,13 @@ QPair<QString, QStringList> getDefaultScriptInterpreter(QString const &scriptPat
 /// \brief Evaluate an #{script:} or #{powershell:} variable.
 ///
 /// \param[in] variable The variable, without the enclosing #{}.
-/// \param[in] variableName The variable name (e.g., "script" or "powershell")
+/// \param[in] variableName The variable name with colon (e.g., "script:" or "powershell:")
 /// \return The result of evaluating the variable.
 //****************************************************************************************************************************************************
 QString evaluateScriptVariable(QString const &variable, QString const &variableName) {
     try {
+        // Note: variableName includes the colon (e.g., "script:"), so the regex becomes "^script:(.+?)(?>:(\d+))?$"
+        // This matches patterns like "script:/path/to/file" or "script:/path/to/file:5000" (with timeout)
         QRegularExpression const rx(QString(R"(^%1(.+?)(?>:(\d+))?$)").arg(variableName));
         QRegularExpressionMatch const match = rx.match(variable);
         if (!match.hasMatch())
@@ -376,7 +378,7 @@ QString evaluateScriptVariable(QString const &variable, QString const &variableN
         return QString::fromUtf8(p.readAllStandardOutput());
     }
     catch (xmilib::Exception const &e) {
-        globals::debugLog().addWarning(QString("Evaluation of #{%1:} variable failed: %2").arg(variableName)
+        globals::debugLog().addWarning(QString("Evaluation of #{%1} variable failed: %2").arg(variableName)
             .arg(e.qwhat()));
         return QString();
     }
