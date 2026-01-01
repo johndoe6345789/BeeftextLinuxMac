@@ -295,18 +295,33 @@ bool isPowerShellExecutable(QString const &exePath) {
 
 //****************************************************************************************************************************************************
 /// \brief Determine the default script interpreter for the platform
+/// \param[in] scriptPath The path to the script file
 /// \return The path to the default script interpreter with its arguments
 //****************************************************************************************************************************************************
 QPair<QString, QStringList> getDefaultScriptInterpreter(QString const &scriptPath) {
 #ifdef Q_OS_WIN
     // On Windows, use PowerShell by default
-    return qMakePair(QString("powershell.exe"), QStringList{ "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", scriptPath });
+    // Try to find PowerShell 7+ (pwsh) first, then fall back to Windows PowerShell
+    QString powershellPath = QStandardPaths::findExecutable("pwsh");
+    if (powershellPath.isEmpty())
+        powershellPath = QStandardPaths::findExecutable("powershell");
+    if (powershellPath.isEmpty())
+        powershellPath = "powershell.exe"; // Fallback to assuming it's in PATH
+    return qMakePair(powershellPath, QStringList{ "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", scriptPath });
 #elif defined(Q_OS_MACOS) || defined(Q_OS_LINUX)
-    // On Unix-like systems (Mac/Linux), use bash
-    return qMakePair(QString("/bin/bash"), QStringList{ scriptPath });
+    // On Unix-like systems (Mac/Linux), use bash if available, otherwise sh
+    QString shellPath = QStandardPaths::findExecutable("bash");
+    if (shellPath.isEmpty())
+        shellPath = QStandardPaths::findExecutable("sh");
+    if (shellPath.isEmpty())
+        shellPath = "/bin/bash"; // Fallback to standard location
+    return qMakePair(shellPath, QStringList{ scriptPath });
 #else
-    // Fallback to sh for other platforms
-    return qMakePair(QString("/bin/sh"), QStringList{ scriptPath });
+    // Fallback for other platforms - try sh
+    QString shellPath = QStandardPaths::findExecutable("sh");
+    if (shellPath.isEmpty())
+        shellPath = "/bin/sh";
+    return qMakePair(shellPath, QStringList{ scriptPath });
 #endif
 }
 
@@ -322,6 +337,7 @@ QString evaluateScriptVariable(QString const &variable, QString const &variableN
     try {
         // Note: variableName includes the colon (e.g., "script:"), so the regex becomes "^script:(.+?)(?>:(\d+))?$"
         // This matches patterns like "script:/path/to/file" or "script:/path/to/file:5000" (with timeout)
+        // The possessive quantifier (?>) is used to prevent backtracking (Qt regex feature)
         QRegularExpression const rx(QString(R"(^%1(.+?)(?>:(\d+))?$)").arg(variableName));
         QRegularExpressionMatch const match = rx.match(variable);
         if (!match.hasMatch())
