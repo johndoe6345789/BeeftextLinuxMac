@@ -384,12 +384,12 @@ QString evaluatePowershellVariable(QString const &variable) {
 }
 
 
-}
+} // anonymous namespace
 
 
 //****************************************************************************************************************************************************
 /// \param[in] variable The variable, without the enclosing #{}.
-/// \param[in] forbiddenSubCombos The text of the combos that are not allowed to be substituted using #{combo:}, to 
+/// \param[in] forbiddenSubCombos The text of the combos that are not allowed to be substituted using #{combo:}, to
 /// avoid endless recursion.
 /// \param[in,out] knownInputVariables The list of know input variables.
 /// \param[out] outCancelled Was the input variable cancelled by the user.
