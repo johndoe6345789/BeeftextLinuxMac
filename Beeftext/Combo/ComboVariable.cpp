@@ -284,6 +284,16 @@ QString evaluateEnvVarVariable(QString const &variable) {
 
 
 //****************************************************************************************************************************************************
+/// \brief Check if an executable path appears to be PowerShell
+/// \param[in] exePath The path to the executable
+/// \return true if the executable is PowerShell
+//****************************************************************************************************************************************************
+bool isPowerShellExecutable(QString const &exePath) {
+    return exePath.contains("powershell", Qt::CaseInsensitive) || exePath.contains("pwsh", Qt::CaseInsensitive);
+}
+
+
+//****************************************************************************************************************************************************
 /// \brief Determine the default script interpreter for the platform
 /// \return The path to the default script interpreter with its arguments
 //****************************************************************************************************************************************************
@@ -335,7 +345,7 @@ QString evaluateScriptVariable(QString const &variable, QString const &variableN
             if (fi.exists() && fi.isExecutable()) {
                 exePath = customPath;
                 // If it's PowerShell (by name), use PowerShell-specific arguments
-                if (exePath.contains("powershell", Qt::CaseInsensitive) || exePath.contains("pwsh", Qt::CaseInsensitive)) {
+                if (isPowerShellExecutable(exePath)) {
                     args = { "-NonInteractive", "-ExecutionPolicy", "Unrestricted", "-File", path };
                 } else {
                     // For other interpreters, just pass the script path
