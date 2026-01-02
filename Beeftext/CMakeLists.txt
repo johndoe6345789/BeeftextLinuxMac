@@ -33,7 +33,6 @@ set(CMAKE_AUTORCC ON)
 # Platform-specific compile options
 if(MSVC)
     add_compile_options(/wd4068) # disable warning related to unknown #pragma directives. they are used to provide hint to CLion's clangd code analysis, but VS compiler does not know them.
-    add_definitions(-DUNICODE -D_UNICODE)
 endif()
 
 # Find Qt lrelease tool for compiling translation files
@@ -59,7 +58,8 @@ if(QT_LRELEASE_EXECUTABLE)
     foreach(TS_FILE ${BEEFTEXT_TS_FILES} ${XMILIB_TS_FILES})
         # Get the base name and locale (e.g., beeftext_fr_FR.ts -> fr_FR)
         get_filename_component(TS_FILENAME ${TS_FILE} NAME_WE)
-        string(REGEX MATCH "([a-z][a-z]_[A-Z][A-Z])" LOCALE ${TS_FILENAME})
+        # Match locale format: ll_CC (e.g., fr_FR, zh_CN) or just ll (e.g., nl)
+        string(REGEX MATCH "([a-z][a-z](_[A-Z][A-Z])?)" LOCALE ${TS_FILENAME})
         
         if(LOCALE)
             # Create locale directory
@@ -256,6 +256,12 @@ add_executable(Beeftext
 add_dependencies(Beeftext translations)
 
 target_precompile_headers(Beeftext PRIVATE stdafx.h)
+
+# Platform-specific compile definitions
+if(MSVC)
+    target_compile_definitions(Beeftext PRIVATE UNICODE _UNICODE)
+endif()
+
 target_link_libraries(Beeftext Qt6::Core)
 target_link_libraries(Beeftext Qt6::Gui)
 target_link_libraries(Beeftext Qt6::Widgets)

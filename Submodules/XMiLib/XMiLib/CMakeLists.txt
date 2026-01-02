@@ -25,11 +25,6 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC_MOC_OPTIONS "-bstdafx.h")
 set(CMAKE_AUTOMOC ON)
 
-# Platform-specific definitions
-if(MSVC)
-    add_definitions(-DUNICODE -D_UNICODE)
-endif()
-
 if (DEFINED WIN32)
    set(WINDOWS_ONLY_SOURCE_FILES
       GlobalShortcut/GlobalShortcut.cpp
@@ -88,6 +83,12 @@ add_library(XMiLib STATIC
    ${WINDOWS_ONLY_SOURCE_FILES})
 
 #target_precompile_headers(XMiLib PUBLIC stdafx.h) Buggy the moment, so it is disabled.
+
+# Platform-specific compile definitions
+if(MSVC)
+    target_compile_definitions(XMiLib PRIVATE UNICODE _UNICODE)
+endif()
+
 target_link_libraries(XMiLib Qt6::Core)
 target_link_libraries(XMiLib Qt6::Gui)
 target_link_libraries(XMiLib Qt6::Widgets)
