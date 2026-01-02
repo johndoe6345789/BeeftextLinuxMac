@@ -25,7 +25,10 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC_MOC_OPTIONS "-bstdafx.h")
 set(CMAKE_AUTOMOC ON)
 
-add_definitions(-DUNICODE -D_UNICODE)
+# Platform-specific definitions
+if(MSVC)
+    add_definitions(-DUNICODE -D_UNICODE)
+endif()
 
 if (DEFINED WIN32)
    set(WINDOWS_ONLY_SOURCE_FILES
