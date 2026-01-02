@@ -8,6 +8,8 @@
 #define XMILIB_CLIPBOARD_TEST_SCOPED_CLIPBOARD_ACCESS_H
 
 
+#ifdef Q_OS_WIN
+
 namespace xmilib {
 
 
@@ -30,6 +32,8 @@ private: // data members
 
 
 } // namespace xmilib
+
+#endif // #ifdef Q_OS_WIN
 
 
 #endif // XMILIB_CLIPBOARD_TEST_SCOPED_CLIPBOARD_ACCESS_H

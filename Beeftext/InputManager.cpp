@@ -28,23 +28,6 @@ qint32 constexpr kTextBufferSize = 10;
 
 
 //****************************************************************************************************************************************************
-/// \brief Retrieve the Input local of the currently focused window.
-///
-/// \param[out] outHkl If the function returns true, this variable holds the input local of the foreground window. If
-/// the function returns false, the value of this variable is undetermined on function exit.
-/// \return true if and only if the input local of the foreground window could be determined.
-//****************************************************************************************************************************************************
-bool getForegroundWindowInputLocale(HKL &outHkl) {
-    // ReSharper disable once CppLocalVariableMayBeConst
-    HWND hwnd = GetForegroundWindow();
-    if (!hwnd)
-        return false;
-    outHkl = GetKeyboardLayout(GetWindowThreadProcessId(hwnd, nullptr));
-    return true;
-}
-
-
-//****************************************************************************************************************************************************
 /// \brief Check if a keystroke is the manual substitution shortcut.
 ///
 /// \return true if and only if keystroke correspond to the shortcut.
@@ -63,6 +46,24 @@ bool isComboTriggerShortcut(SpShortcut const &shortcut) {
 bool isAppEnableDisableShortcut(SpShortcut const &shortcut) {
     SpShortcut const appEnableDisableShortcut = PreferencesManager::instance().appEnableDisableShortcut();
     return shortcut && appEnableDisableShortcut && (*shortcut == *appEnableDisableShortcut);
+}
+
+
+#ifdef Q_OS_WIN
+//****************************************************************************************************************************************************
+/// \brief Retrieve the Input local of the currently focused window.
+///
+/// \param[out] outHkl If the function returns true, this variable holds the input local of the foreground window. If
+/// the function returns false, the value of this variable is undetermined on function exit.
+/// \return true if and only if the input local of the foreground window could be determined.
+//****************************************************************************************************************************************************
+bool getForegroundWindowInputLocale(HKL &outHkl) {
+    // ReSharper disable once CppLocalVariableMayBeConst
+    HWND hwnd = GetForegroundWindow();
+    if (!hwnd)
+        return false;
+    outHkl = GetKeyboardLayout(GetWindowThreadProcessId(hwnd, nullptr));
+    return true;
 }
 
 
@@ -105,10 +106,13 @@ SpShortcut shortcutFromWindowsKeyEvent(KBDLLHOOKSTRUCT const *keyEvent) {
     return Shortcut::fromModifiersAndKey(mods, key);
 }
 
+#endif // #ifdef Q_OS_WIN
+
 
 }
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// This static member function is registered to be called whenever a key event occurs.
 /// 
@@ -174,6 +178,7 @@ LRESULT CALLBACK InputManager::mouseProcedure(int nCode, WPARAM wParam, LPARAM l
     }
     return CallNextHookEx(nullptr, nCode, wParam, lParam);
 }
+#endif // #ifdef Q_OS_WIN
 
 
 //****************************************************************************************************************************************************
@@ -211,10 +216,16 @@ void InputManager::onShortcut(SpShortcut const &shortcut) {
 ///
 //****************************************************************************************************************************************************
 InputManager::InputManager()
-    : QObject(nullptr), useLegacyKeyProcessing_(!isAppRunningOnWindows10OrHigher()) {
+    : QObject(nullptr)
+#ifdef Q_OS_WIN
+    , useLegacyKeyProcessing_(!isAppRunningOnWindows10OrHigher())
+#endif
+{
+#ifdef Q_OS_WIN
     this->enableKeyboardHook();
+#endif
     connect(this, &InputManager::shortcutPressed, this, &InputManager::onShortcut);
-#ifdef NDEBUG
+#if defined(Q_OS_WIN) && defined(NDEBUG)
     // to avoid being locked with all input unresponsive when in debug (because one forgot that breakpoints should be
     // avoided, for instance), we only enable the low level mouse hook in release configuration
     this->enableMouseHook();
@@ -226,8 +237,10 @@ InputManager::InputManager()
 // 
 //****************************************************************************************************************************************************
 InputManager::~InputManager() {
+#ifdef Q_OS_WIN
     this->disableKeyboardHook();
     this->disableMouseHook();
+#endif
 }
 
 
@@ -236,6 +249,7 @@ InputManager::~InputManager() {
 /// \return true if the event can be passed down to the keyboard hooked chain, and false it it should be removed
 //****************************************************************************************************************************************************
 bool InputManager::onKeyboardEvent(KeyStroke const &keyStroke) {
+#ifdef Q_OS_WIN
     // on some layout (e.g. US International, direction key + alt lead to garbage char if ToUnicode is pressed, so
     // we bypass normal processing for those keys(note this is different for the dead key issue described in
     // processKey().
@@ -273,6 +287,10 @@ bool InputManager::onKeyboardEvent(KeyStroke const &keyStroke) {
         emit characterTyped(c);
     }
     return true;
+#else
+    Q_UNUSED(keyStroke);
+    return true;
+#endif
 }
 
 
@@ -282,12 +300,19 @@ bool InputManager::onKeyboardEvent(KeyStroke const &keyStroke) {
 /// \return The text resulting of the keystroke
 //****************************************************************************************************************************************************
 QString InputManager::processKey(KeyStroke const &keyStroke, bool &outIsDeadKey) {
+#ifdef Q_OS_WIN
     // Windows version before Windows 10 build 1607, there is not option to ensure that ToUnicode() / ToUnicodeEx does
     // not modify the keyboard state, which forces us to perform a special treatment for dead keys.
     return useLegacyKeyProcessing_ ? processKeyLegacy(keyStroke, outIsDeadKey) : processKeyModern(keyStroke);
+#else
+    Q_UNUSED(keyStroke);
+    Q_UNUSED(outIsDeadKey);
+    return QString();
+#endif
 }
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// \param[in] keyStroke The key stroke
 /// \return The text resulting of the keystroke
@@ -353,13 +378,18 @@ QString InputManager::processKeyLegacy(KeyStroke const &keyStroke, bool &outIsDe
 void InputManager::onMouseClickEvent(int, WPARAM, LPARAM) {
     emit comboBreakerTyped();
 }
+#endif // #ifdef Q_OS_WIN
 
 
 //****************************************************************************************************************************************************
 /// \return true if and only if the keyboard hook is enabled
 //****************************************************************************************************************************************************
 bool InputManager::isKeyboardHookEnable() const {
+#ifdef Q_OS_WIN
     return keyboardHook_;
+#else
+    return false;
+#endif
 }
 
 
@@ -367,12 +397,14 @@ bool InputManager::isKeyboardHookEnable() const {
 //
 //****************************************************************************************************************************************************
 void InputManager::enableKeyboardHook() {
+#ifdef Q_OS_WIN
     if (keyboardHook_)
         return;
     HMODULE const moduleHandle = GetModuleHandle(nullptr);
     keyboardHook_ = SetWindowsHookEx(WH_KEYBOARD_LL, keyboardProcedure, moduleHandle, 0);
     if (!keyboardHook_)
         throw Exception("Could not register a keyboard hook.");
+#endif
 }
 
 
@@ -380,10 +412,12 @@ void InputManager::enableKeyboardHook() {
 // 
 //****************************************************************************************************************************************************
 void InputManager::disableKeyboardHook() {
+#ifdef Q_OS_WIN
     if (keyboardHook_) {
         UnhookWindowsHookEx(keyboardHook_);
         keyboardHook_ = nullptr;
     }
+#endif
 }
 
 
@@ -392,12 +426,17 @@ void InputManager::disableKeyboardHook() {
 /// \return true if and only if the keyboard hook was enabled before the call
 //****************************************************************************************************************************************************
 bool InputManager::setKeyboardHookEnabled(bool enabled) {
+#ifdef Q_OS_WIN
     bool const result = keyboardHook_;
     if (enabled)
         this->enableKeyboardHook();
     else
         this->disableKeyboardHook();
     return result;
+#else
+    Q_UNUSED(enabled);
+    return false;
+#endif
 }
 
 
@@ -421,7 +460,11 @@ bool InputManager::isShortcutProcessingEnabled() const {
 /// \return true if and only if the mouse hook is enabled
 //****************************************************************************************************************************************************
 bool InputManager::isMouseHookEnabled() const {
+#ifdef Q_OS_WIN
     return mouseHook_;
+#else
+    return false;
+#endif
 }
 
 
@@ -429,12 +472,14 @@ bool InputManager::isMouseHookEnabled() const {
 // 
 //****************************************************************************************************************************************************
 void InputManager::enableMouseHook() {
+#ifdef Q_OS_WIN
     if (mouseHook_)
         return;
     HMODULE const moduleHandle = GetModuleHandle(nullptr);
     mouseHook_ = SetWindowsHookEx(WH_MOUSE_LL, mouseProcedure, moduleHandle, 0);
     if (!mouseHook_)
         throw Exception("Could not register a mouse hook.");
+#endif
 }
 
 
@@ -442,10 +487,12 @@ void InputManager::enableMouseHook() {
 // 
 //****************************************************************************************************************************************************
 void InputManager::disableMouseHook() {
+#ifdef Q_OS_WIN
     if (mouseHook_) {
         UnhookWindowsHookEx(mouseHook_);
         mouseHook_ = nullptr;
     }
+#endif
 }
 
 
@@ -454,10 +501,15 @@ void InputManager::disableMouseHook() {
 /// \return true if and only if the mouse hook was enabled before the call 
 //****************************************************************************************************************************************************
 bool InputManager::setMouseHookEnabled(bool enabled) {
+#ifdef Q_OS_WIN
     bool const result = mouseHook_;
     if (enabled)
         this->enableMouseHook();
     else
         this->disableMouseHook();
     return result;
+#else
+    Q_UNUSED(enabled);
+    return false;
+#endif
 }

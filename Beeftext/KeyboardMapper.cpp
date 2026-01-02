@@ -319,6 +319,7 @@ quint32 KeyboardMapper::qtKeyToVirtualKeyCode(Qt::Key const &key) {
 /// \return The Qt modifier bitfield
 //****************************************************************************************************************************************************
 Qt::KeyboardModifiers KeyboardMapper::nativeModifiersToQtModifiers(quint32 modifiers) {
+#ifdef Q_OS_WIN
     Qt::KeyboardModifiers result;
     if (modifiers & MOD_CONTROL)
         result.setFlag(Qt::ControlModifier);
@@ -329,6 +330,10 @@ Qt::KeyboardModifiers KeyboardMapper::nativeModifiersToQtModifiers(quint32 modif
     if (modifiers & MOD_SHIFT)
         result.setFlag(Qt::ShiftModifier);
     return result;
+#else
+    Q_UNUSED(modifiers);
+    return Qt::NoModifier;
+#endif
 }
 
 
@@ -337,6 +342,7 @@ Qt::KeyboardModifiers KeyboardMapper::nativeModifiersToQtModifiers(quint32 modif
 /// \return The native modifiers bitfield.
 //****************************************************************************************************************************************************
 quint32 KeyboardMapper::qtModifiersToNativeModifiers(Qt::KeyboardModifiers const &modifiers) {
+#ifdef Q_OS_WIN
     quint32 result = 0;
     if (modifiers.testFlag(Qt::ControlModifier))
         result |= MOD_CONTROL;
@@ -347,6 +353,10 @@ quint32 KeyboardMapper::qtModifiersToNativeModifiers(Qt::KeyboardModifiers const
     if (modifiers.testFlag(Qt::ShiftModifier))
         result |= MOD_SHIFT;
     return result;
+#else
+    Q_UNUSED(modifiers);
+    return 0;
+#endif
 }
 
 
@@ -379,6 +389,7 @@ void KeyboardMapper::computeMappings() {
             // note: no mapping for qtUnknown in virtualKeysForQtKeys_
             continue;
         }
+#ifdef Q_OS_WIN
         // key == 0 the key is a printable one. We use ToUnicode to determine the actual character.
         // it's obvious for letters and numbers, but virtual key codes for other characters ( [] , {} , !, ...)
         // depend on the keyboard layout.
@@ -390,5 +401,9 @@ void KeyboardMapper::computeMappings() {
         Qt::Key const qtKey = Qt::Key(QChar(textBuffer[0]).toUpper().unicode());
         qtKeysForVirtualKeys_[vkCode] = qtKey;
         virtualKeysForQtKeys_[qtKey] = vkCode;
+#else
+        // On non-Windows platforms, we don't have keyboard mapping yet
+        qtKeysForVirtualKeys_[vkCode] = Qt::Key_unknown;
+#endif
     }
 }

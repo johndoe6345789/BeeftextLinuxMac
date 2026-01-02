@@ -159,7 +159,9 @@ void PrefPaneCombos::onChangeDefaultCaseSensitivity() const {
 void PrefPaneCombos::onCheckEnablePickerWindow(bool checked) {
     prefs_.setComboPickerEnabled(checked);
     if (!checked) {
+#ifdef Q_OS_WIN
         xmilib::GlobalShortcutManager::instance().reset();
+#endif
         this->updateGui();
         return;
     }
@@ -174,7 +176,9 @@ void PrefPaneCombos::onCheckEnablePickerWindow(bool checked) {
 //****************************************************************************************************************************************************
 void PrefPaneCombos::onChangePickerWindowShortcut() {
     SpShortcut shortcut = prefs_.comboPickerShortcut();
+#ifdef Q_OS_WIN
     xmilib::GlobalShortcutManager::instance().reset(); // Disable the shortcut
+#endif
     if (ShortcutDialog::run(this, shortcut, true))
         prefs_.setComboPickerShortcut(shortcut);
     ui_.editPickerWindowShortcut->setText(shortcut ? shortcut->toString() : "");

@@ -21,6 +21,7 @@
 #include <XMiLib/GlobalShortcut/GlobalShortcutManager.h>
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// \return true if the preference was successfully applied
 //****************************************************************************************************************************************************
@@ -41,6 +42,15 @@ bool applyComboPickerPreferences() {
     QObject::connect(sc, &xmilib::GlobalShortcut::triggered, []() { showComboPickerWindow(); });
     return true;
 }
+#else
+//****************************************************************************************************************************************************
+/// \return true if the preference was successfully applied
+//****************************************************************************************************************************************************
+bool applyComboPickerPreferences() {
+    // On non-Windows platforms, global shortcuts are not yet implemented
+    return true;
+}
+#endif // #ifdef Q_OS_WIN
 
 
 //****************************************************************************************************************************************************
@@ -57,6 +67,7 @@ QScreen *screenContainingCursor() {
 }
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// \brief return the rectangle for a window.
 ///
@@ -100,6 +111,7 @@ QRect foregroundWindowRect() {
     }
     return rectForHwnd(hwnd);
 }
+#endif // #ifdef Q_OS_WIN
 
 
 //****************************************************************************************************************************************************
@@ -107,6 +119,7 @@ QRect foregroundWindowRect() {
 //****************************************************************************************************************************************************
 void showComboPickerWindow() {
     static PickerWindow window;
+#ifdef Q_OS_WIN
     QRect const rect = foregroundWindowRect();
     if (rect.isNull())
         window.move(QCursor::pos());
@@ -116,6 +129,13 @@ void showComboPickerWindow() {
     SetForegroundWindow(reinterpret_cast<HWND>(window.winId()));  // NOLINT(performance-no-int-to-ptr)
     qApp->setActiveWindow(&window);
     window.raise();
+#else
+    // On non-Windows platforms, show the window at the cursor position
+    window.move(QCursor::pos());
+    window.show();
+    qApp->setActiveWindow(&window);
+    window.raise();
+#endif
 }
 
 

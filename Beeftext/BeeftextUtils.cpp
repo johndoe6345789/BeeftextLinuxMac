@@ -17,7 +17,9 @@
 #include "Preferences/PreferencesManager.h"
 #include "BeeftextGlobals.h"
 #include "Clipboard/ClipboardManagerDefault.h"
+#ifdef Q_OS_WIN
 #include <Psapi.h>
+#endif
 #include <XMiLib/SystemUtils.h>
 #include <XMiLib/Exception.h>
 
@@ -30,8 +32,10 @@ namespace {
 
 QString const kPortableModeBeaconFileName = "Portable.bin"; ///< The name of the 'beacon' file used to detect if the application should run in portable mode
 QString const kPortableAppsModeBeaconFileName = "PortableApps.bin"; ///< The name of the 'beacon file used to detect if the app is in PortableApps mode
+#ifdef Q_OS_WIN
 QList<quint16> const modifierKeys = { VK_LCONTROL, VK_RCONTROL, VK_LMENU, VK_RMENU, VK_LSHIFT, VK_RSHIFT, VK_LWIN,
                                       VK_RWIN }; ///< The modifier keys
+#endif
 QChar constexpr kObjectReplacementChar(0xfffc); ///< The unicode object replacement character.
 
 
@@ -67,6 +71,7 @@ bool isInPortableModeInternal() {
 /// \return The list of modifier keys that are pressed
 //****************************************************************************************************************************************************
 QList<quint16> backupAndReleaseModifierKeys() {
+#ifdef Q_OS_WIN
     QList<quint16> result;
     for (quint16 const key: modifierKeys)
         if (GetKeyState(key) < 0) {
@@ -74,6 +79,9 @@ QList<quint16> backupAndReleaseModifierKeys() {
             synthesizeKeyUp(key);
         }
     return result;
+#else
+    return QList<quint16>();
+#endif
 }
 
 
@@ -83,8 +91,12 @@ QList<quint16> backupAndReleaseModifierKeys() {
 /// \param[in] keys The list of modifiers key to restore by generating a key press event
 //****************************************************************************************************************************************************
 void restoreModifierKeys(QList<quint16> const &keys) {
+#ifdef Q_OS_WIN
     for (quint16 const key: keys)
         synthesizeKeyDown(key);
+#else
+    Q_UNUSED(keys);
+#endif
 }
 
 
@@ -134,6 +146,7 @@ bool usePortableAppsFolderLayout() {
 /// \return A null string in case of failure
 //****************************************************************************************************************************************************
 QString getActiveExecutableFileName() {
+#ifdef Q_OS_WIN
     WCHAR buffer[MAX_PATH + 1] = { 0 };
     DWORD processId = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &processId);
@@ -144,6 +157,9 @@ QString getActiveExecutableFileName() {
     bool const ok = GetModuleFileNameEx(processHandle, nullptr, buffer, MAX_PATH);
     CloseHandle(processHandle);
     return ok ? QFileInfo(QDir::fromNativeSeparators(QString::fromWCharArray(buffer))).fileName() : QString();
+#else
+    return QString();
+#endif
 }
 
 
@@ -151,9 +167,13 @@ QString getActiveExecutableFileName() {
 /// \return true if and only if Beeftext is the application currently in the foreground
 //****************************************************************************************************************************************************
 bool isBeeftextTheForegroundApplication() {
+#ifdef Q_OS_WIN
     DWORD processId = 0;
     GetWindowThreadProcessId(GetForegroundWindow(), &processId);
     return QCoreApplication::applicationPid() == processId;
+#else
+    return false;
+#endif
 }
 
 
@@ -177,9 +197,13 @@ QString htmlToPlainText(QString const &snippet) {
 /// \param[in] count The number of characters to erase.
 //****************************************************************************************************************************************************
 void eraseChars(qint32 count) {
+#ifdef Q_OS_WIN
     QList<quint16> const pressedModifiers = backupAndReleaseModifierKeys();
     synthesizeBackspaces(count);
     restoreModifierKeys(pressedModifiers);
+#else
+    Q_UNUSED(count);
+#endif
 }
 
 
@@ -191,6 +215,7 @@ void eraseChars(qint32 count) {
 /// \param[in] text The text.
 //****************************************************************************************************************************************************
 void insertTextByPasting(QString const &text) {
+#ifdef Q_OS_WIN
     // we use the clipboard to and copy/paste the snippet
     ClipboardManager &clipboardManager = ClipboardManager::instance();
     bool const restoreClipboard = PreferencesManager::instance().restoreClipboardAfterSubstitution();
@@ -216,6 +241,9 @@ void insertTextByPasting(QString const &text) {
 
     // We need to delay clipboard restoration to avoid unexpected behaviours.
     QTimer::singleShot(1000, &clipboardManager, restoreClipboard ? &ClipboardManager::restoreClipboard : &ClipboardManager::clearClipboard);
+#else
+    Q_UNUSED(text);
+#endif
 }
 
 
@@ -227,6 +255,7 @@ void insertTextByPasting(QString const &text) {
 /// \param[in] text The text.
 //****************************************************************************************************************************************************
 void insertTextByTyping(QString const &text) {
+#ifdef Q_OS_WIN
     QList<quint16> pressedModifiers;
     // we simulate the typing of the snippet text
     for (QChar c: text) {
@@ -244,7 +273,9 @@ void insertTextByTyping(QString const &text) {
             waitBetweenKeystrokes();
         }
     }
-
+#else
+    Q_UNUSED(text);
+#endif
 }
 
 
@@ -285,6 +316,7 @@ void insertText(QString const &text) {
 /// \param[in] shortcut The shortcut.
 //****************************************************************************************************************************************************
 void renderShortcut(SpShortcut const &shortcut) {
+#ifdef Q_OS_WIN
     if (!shortcut) {
         globals::debugLog().addWarning("Tried to render a null shortcut.");
         return;
@@ -315,6 +347,9 @@ void renderShortcut(SpShortcut const &shortcut) {
     if (mods & Qt::ShiftModifier)
         synthesizeKeyUp(VK_SHIFT);
     restoreModifierKeys(pressedModifiers);
+#else
+    Q_UNUSED(shortcut);
+#endif
 }
 
 
@@ -324,12 +359,16 @@ void renderShortcut(SpShortcut const &shortcut) {
 /// \param[in] count The number of characters to move by
 //****************************************************************************************************************************************************
 void moveCursorLeft(qint32 count) {
+#ifdef Q_OS_WIN
     if (count < 1)
         return;
     QList<quint16> const pressedModifiers = backupAndReleaseModifierKeys(); ///< We artificially depress the current modifier keys
     for (qint32 i = 0; i < count; ++i)
         synthesizeKeyDownAndUp(VK_LEFT);
     restoreModifierKeys(pressedModifiers);
+#else
+    Q_UNUSED(count);
+#endif
 }
 
 

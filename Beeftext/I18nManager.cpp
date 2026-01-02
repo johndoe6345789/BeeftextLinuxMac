@@ -168,7 +168,7 @@ QLocale I18nManager::validateLocale(QLocale const &locale) {
 
     // first we look for a perfect match (language AND country)
     QList<LocaleInfo>::const_iterator it = std::find_if(supportedLocales_.begin(), supportedLocales_.end(), [&locale](LocaleInfo const &l) -> bool {
-        return locale.language() == l.locale.language() && locale.country() == l.locale.country();
+        return locale.language() == l.locale.language() && locale.territory() == l.locale.territory();
     });
     if (it != supportedLocales_.end())
         return (*it).locale;
