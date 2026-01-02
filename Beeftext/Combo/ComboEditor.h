@@ -31,7 +31,8 @@ private: // data members
 
 private slots:
     void onEditorContextMenuRequested(QPoint const &pos); ///< Slot for the display of the editor's context menu.
-    void insertPowershellVariable(); ///< Prompt for a script file path and insert a powershell variable at the current cursor position.
+    void insertScriptVariable(); ///< Prompt for a script file path and insert a script variable at the current cursor position.
+    void insertPowershellVariable(); ///< Prompt for a script file path and insert a powershell variable at the current cursor position (legacy).
     void insertShortcutVariable(); ///< Insert a shortcut variable after display the shortcut dialog.
 
 };

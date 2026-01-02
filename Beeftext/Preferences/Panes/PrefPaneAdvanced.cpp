@@ -236,7 +236,14 @@ void PrefPaneAdvanced::onCheckUseCustomPowerShellVersion(bool checked) {
 //
 //****************************************************************************************************************************************************
 void PrefPaneAdvanced::onChangeCustomPowershellVersion() {
-    QString const path = QFileDialog::getOpenFileName(this, tr("Select PowerShell executable"), QString(), tr("Executable files (*.exe);;All files (*.*)"));
+#ifdef Q_OS_WIN
+    QString const filter = tr("Executable files (*.exe);;All files (*.*)");
+    QString const title = tr("Select script interpreter");
+#else
+    QString const filter = tr("All files (*)");
+    QString const title = tr("Select script interpreter");
+#endif
+    QString const path = QFileDialog::getOpenFileName(this, title, QString(), filter);
     if (path.isEmpty())
         return;
     prefs_.setCustomPowershellPath(path);
