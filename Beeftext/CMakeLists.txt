@@ -29,18 +29,73 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC_MOC_OPTIONS "-bstdafx.h")
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
-set(POWERSHELL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../Scripts/Powershell)
 
-add_compile_options(/wd4068) # disable warning related to unknown #pragma directives. they are used to provide hint to CLion's clangd code analysis, but VS compiler does not know them.
-add_definitions(-DUNICODE -D_UNICODE)
+# Platform-specific compile options
+if(MSVC)
+    add_compile_options(/wd4068) # disable warning related to unknown #pragma directives. they are used to provide hint to CLion's clangd code analysis, but VS compiler does not know them.
+    add_definitions(-DUNICODE -D_UNICODE)
+endif()
 
-file(TO_NATIVE_PATH "${POWERSHELL_DIR}/CompileTranslationFiles.ps1" TRANS_SRC_DIR)
-file(TO_NATIVE_PATH "${CMAKE_CURRENT_BINARY_DIR}/translations" TRANS_DST_DIR)
+# Find Qt lrelease tool for compiling translation files
+find_program(QT_LRELEASE_EXECUTABLE NAMES lrelease lrelease-qt6 lrelease6 HINTS "${QT_DIR}/bin")
+if(NOT QT_LRELEASE_EXECUTABLE)
+    message(WARNING "lrelease not found. Translation files will not be compiled.")
+else()
+    message(STATUS "Found lrelease at ${QT_LRELEASE_EXECUTABLE}")
+endif()
 
-add_custom_target(translations
-   COMMAND
-   powershell.exe -ExecutionPolicy Bypass -NoProfile -NonInteractive -command \"${TRANS_SRC_DIR} ${TRANS_DST_DIR}\" >NUL
-)
+# Get all translation files
+file(GLOB BEEFTEXT_TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/Translations/beeftext_*.ts")
+file(GLOB XMILIB_TS_FILES "${CMAKE_CURRENT_SOURCE_DIR}/../Submodules/XMiLib/XMiLib/Translations/xmilib_*.ts")
+
+# Create translation output directory
+set(TRANSLATIONS_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations")
+
+# Custom target to compile all translation files
+add_custom_target(translations ALL)
+
+if(QT_LRELEASE_EXECUTABLE)
+    # Process each translation file
+    foreach(TS_FILE ${BEEFTEXT_TS_FILES} ${XMILIB_TS_FILES})
+        # Get the base name and locale (e.g., beeftext_fr_FR.ts -> fr_FR)
+        get_filename_component(TS_FILENAME ${TS_FILE} NAME_WE)
+        string(REGEX MATCH "([a-z][a-z]_[A-Z][A-Z])" LOCALE ${TS_FILENAME})
+        
+        if(LOCALE)
+            # Create locale directory
+            set(LOCALE_DIR "${TRANSLATIONS_OUTPUT_DIR}/${LOCALE}")
+            
+            # Output .qm file path
+            get_filename_component(TS_NAME ${TS_FILE} NAME_WE)
+            set(QM_FILE "${LOCALE_DIR}/${TS_NAME}.qm")
+            
+            # Add custom command to compile .ts to .qm
+            add_custom_command(
+                OUTPUT ${QM_FILE}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${LOCALE_DIR}
+                COMMAND ${QT_LRELEASE_EXECUTABLE} ${TS_FILE} -qm ${QM_FILE}
+                DEPENDS ${TS_FILE}
+                COMMENT "Compiling ${TS_FILENAME} translation"
+            )
+            
+            # Add to translations target dependencies
+            add_custom_target(translation_${TS_NAME} DEPENDS ${QM_FILE})
+            add_dependencies(translations translation_${TS_NAME})
+            
+            # Copy Qt base translations for each locale
+            if(EXISTS "${QT_DIR}/translations/qtbase_${LOCALE}.qm")
+                set(QT_BASE_QM "${LOCALE_DIR}/qtbase_${LOCALE}.qm")
+                add_custom_command(
+                    OUTPUT ${QT_BASE_QM}
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different "${QT_DIR}/translations/qtbase_${LOCALE}.qm" ${QT_BASE_QM}
+                    COMMENT "Copying Qt base translation for ${LOCALE}"
+                )
+                add_custom_target(qt_translation_${LOCALE} DEPENDS ${QT_BASE_QM})
+                add_dependencies(translations qt_translation_${LOCALE})
+            endif()
+        endif()
+    endforeach()
+endif()
 
 add_executable(Beeftext
    AutoStart.cpp
@@ -206,4 +261,8 @@ target_link_libraries(Beeftext Qt6::Gui)
 target_link_libraries(Beeftext Qt6::Widgets)
 target_link_libraries(Beeftext Qt6::Network)
 target_link_libraries(Beeftext XMiLib)
-target_link_libraries(Beeftext Winmm)
+
+# Platform-specific libraries
+if(WIN32)
+    target_link_libraries(Beeftext Winmm)
+endif()
