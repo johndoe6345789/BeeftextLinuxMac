@@ -23,6 +23,7 @@ namespace {
 /// \return 0 if the key could not be identified.
 //****************************************************************************************************************************************************
 quint16 identifyKey(QString const &keyStr) {
+#ifdef Q_OS_WIN
     QString const key = keyStr.toLower();
     if (key == "space") return VK_SPACE;
     if (key == "tab") return VK_TAB;
@@ -57,6 +58,10 @@ quint16 identifyKey(QString const &keyStr) {
         if (key == QString("f%1").arg(i))
             return VK_F1 + i - 1;
     return 0;
+#else
+    Q_UNUSED(keyStr);
+    return 0;
+#endif
 }
 
 
@@ -94,10 +99,16 @@ QString KeySnippetFragment::toString() const {
 //
 //****************************************************************************************************************************************************
 void KeySnippetFragment::render() const {
+#ifdef Q_OS_WIN
     PreferencesManager const &prefs = PreferencesManager::instance();
     for (qint32 i = 0; i < repeatCount_; ++i) {
         xmilib::synthesizeKeyDownAndUp(key_);
         if (i != repeatCount_ - 1)
             QThread::msleep(prefs.delayBetweenKeystrokesMs());
     }
+#else
+    // On non-Windows platforms, key synthesis is not yet implemented
+    Q_UNUSED(repeatCount_);
+    Q_UNUSED(key_);
+#endif
 }
