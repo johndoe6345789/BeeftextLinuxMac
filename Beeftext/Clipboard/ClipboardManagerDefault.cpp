@@ -22,7 +22,11 @@ using namespace xmilib;
 namespace {
 
 
-QList<quint32> const kIgnoredClipboardFormats { CF_ENHMETAFILE }; ///< File formats that we ignore when backing up the clipboard.
+QList<quint32> const kIgnoredClipboardFormats { 
+#ifdef Q_OS_WIN
+    CF_ENHMETAFILE 
+#endif
+}; ///< File formats that we ignore when backing up the clipboard.
 QString const kHtmlFormatName = "HTML Format"; ///< The name of the format used for HTML clipboard content. This a a Microsoft convention, do no change it
 QString const kRegExpHtmlFormatField = R"(^\s*%1:(-?[\d]+)\s*$)"; ///The regular expression for the HTML format field.
 
@@ -36,8 +40,12 @@ QString const kRegExpHtmlFormatField = R"(^\s*%1:(-?[\d]+)\s*$)"; ///The regular
 /// \return The clipboard format for HTML.
 //****************************************************************************************************************************************************
 quint32 htmlClipboardFormat() {
+#ifdef Q_OS_WIN
     static quint32 result = RegisterClipboardFormatA(kHtmlFormatName.toLocal8Bit());
     return result;
+#else
+    return 0;
+#endif
 }
 
 
@@ -61,6 +69,7 @@ ClipboardManager::EType ClipboardManagerDefault::type() const {
 // 
 //****************************************************************************************************************************************************
 void ClipboardManagerDefault::backupClipboard() {
+#ifdef Q_OS_WIN
     try {
         backup_.clear();
         this->freeBitmapBackup();
@@ -101,6 +110,7 @@ void ClipboardManagerDefault::backupClipboard() {
     } catch (Exception const &e) {
         globals::debugLog().addError(QString("%1: %2").arg(__FUNCTION__, e.qwhat()));
     }
+#endif
 }
 
 
@@ -108,6 +118,7 @@ void ClipboardManagerDefault::backupClipboard() {
 //
 //****************************************************************************************************************************************************
 void ClipboardManagerDefault::restoreClipboard() {
+#ifdef Q_OS_WIN
     try {
         if (!this->hasBackup())
             return;
@@ -150,6 +161,7 @@ void ClipboardManagerDefault::restoreClipboard() {
     } catch (Exception const &e) {
         globals::debugLog().addError(QString("%1: %2").arg(__FUNCTION__, e.qwhat()));
     }
+#endif
 }
 
 
@@ -157,6 +169,7 @@ void ClipboardManagerDefault::restoreClipboard() {
 //
 //****************************************************************************************************************************************************
 void ClipboardManagerDefault::clearClipboard() {
+#ifdef Q_OS_WIN
     try {
         ScopedClipboardAccess const sca(nullptr);
         if (!sca.isOpen())
@@ -167,13 +180,18 @@ void ClipboardManagerDefault::clearClipboard() {
     } catch (Exception const & e) {
         globals::debugLog().addError(QString("%1: %2").arg(__FUNCTION__, e.qwhat()));
     }
+#endif
 }
 
 //****************************************************************************************************************************************************
 /// \return true if and only if the clipboard manager contains a clipboard backup
 //****************************************************************************************************************************************************
 bool ClipboardManagerDefault::hasBackup() const {
+#ifdef Q_OS_WIN
     return (!backup_.empty()) || bitmapBackup_;
+#else
+    return !backup_.empty();
+#endif
 }
 
 
@@ -181,6 +199,7 @@ bool ClipboardManagerDefault::hasBackup() const {
 /// \ return The text value of the clipboard. If the clipboard does not contain text, an empty string is returned.
 //****************************************************************************************************************************************************
 QString ClipboardManagerDefault::text() {
+#ifdef Q_OS_WIN
     ScopedClipboardAccess const sca(nullptr);
     if ((!sca.isOpen()) || (!IsClipboardFormatAvailable(CF_UNICODETEXT))) // Note system does automatic conversion from CF_OEMTEXT and CF_TEXT to CF_UNICODETEXT
         return QString();
@@ -197,9 +216,13 @@ QString ClipboardManagerDefault::text() {
     QByteArray array(static_cast<qsizetype>(size), 0);
     memcpy(array.data(), data, size);
     return QString::fromUtf16(reinterpret_cast<char16_t const *>(array.data()), (qsizetype(size) - 1) / 2); // (size - 1) because we discard the final `0x0000`
+#else
+    return QString();
+#endif
 }
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// \brief Allocate space in global memory and put the given text in UTF-16 format in it.
 ///
@@ -225,6 +248,7 @@ HANDLE putUtf16InGlobalMemory(QString const &text) {
     pointer[size - 2] = 0; // for safety
     return handle;
 }
+#endif
 
 
 //****************************************************************************************************************************************************
@@ -232,6 +256,7 @@ HANDLE putUtf16InGlobalMemory(QString const &text) {
 /// \return true if and only if the operation was successful.
 //****************************************************************************************************************************************************
 bool ClipboardManagerDefault::setText(QString const &text) {
+#ifdef Q_OS_WIN
     HANDLE const handle = putUtf16InGlobalMemory(text);
     if (!handle)
         return false;
@@ -251,6 +276,10 @@ bool ClipboardManagerDefault::setText(QString const &text) {
         GlobalFree(handle);
         return false;
     }
+#else
+    Q_UNUSED(text);
+    return false;
+#endif
 }
 
 
@@ -294,6 +323,7 @@ QString extractHtmlFromClipboardData(QString const &clipboardData) {
 /// \ return The HTML value of the clipboard. If the clipboard does not contain HTML, an empty string is returned.
 //****************************************************************************************************************************************************
 QString ClipboardManagerDefault::html() {
+#ifdef Q_OS_WIN
     ScopedClipboardAccess const sca(nullptr);
     quint32 const htmlFormat = htmlClipboardFormat();
     if ((!sca.isOpen()) || (!IsClipboardFormatAvailable(htmlFormat))) // Note system does automatic conversion from CF_OEMTEXT and CF_TEXT to CF_UNICODETEXT
@@ -311,7 +341,9 @@ QString ClipboardManagerDefault::html() {
     QByteArray array(static_cast<qint32>(size), 0);
     memcpy(array.data(), data, size);
     return extractHtmlFromClipboardData(QString::fromUtf8(array.data(), static_cast<qint32>(size) - 1)); // (size - 1) because we discard the final `0x0000`
-
+#else
+    return QString();
+#endif
 }
 
 
@@ -326,6 +358,7 @@ bool ClipboardManagerDefault::setHtml(QString const &html) {
 }
 
 
+#ifdef Q_OS_WIN
 //****************************************************************************************************************************************************
 /// \param[in] bitmap The bitmap.
 //****************************************************************************************************************************************************
@@ -347,5 +380,6 @@ void ClipboardManagerDefault::freeBitmapBackup() {
         throw Exception("Could not delete clipboard bitmap backup");
     bitmapBackup_ = nullptr;
 }
+#endif
 
 

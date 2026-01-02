@@ -59,7 +59,9 @@ private: // member functions
     QString processKey(KeyStroke const &keyStroke, bool &outIsDeadKey); ///< Process a ky stroke and return the generated characters
     static QString processKeyModern(KeyStroke const &keyStroke); ///< Process a key stroke and return the generated characters
     QString processKeyLegacy(KeyStroke const &keyStroke, bool &outIsDeadKey); ///< Process a key stroke and return the generated characters
+#ifdef Q_OS_WIN
     void onMouseClickEvent(int, WPARAM, LPARAM); ///< Process a mouse click event
+#endif
     bool isKeyboardHookEnable() const; ///< Is the keyboard hook enabled
     void enableKeyboardHook(); ///< Enable the keyboard hook
     void disableKeyboardHook(); ///< Disable the keyboard hook
@@ -69,12 +71,16 @@ private: // member functions
     bool setMouseHookEnabled(bool enabled); ///< Enable or disable the keyboard hook.
 
 private: // static member functions
+#ifdef Q_OS_WIN
     static LRESULT CALLBACK keyboardProcedure(int nCode, WPARAM wParam, LPARAM lParam); ///< The keyboard event callback
     static LRESULT CALLBACK mouseProcedure(int nCode, WPARAM wParam, LPARAM lParam); ///< The mouse event callback
+#endif
 
 private: // data members
+#ifdef Q_OS_WIN
     HHOOK keyboardHook_ { nullptr }; ///< The handle to the keyboard hook used to be notified of keyboard events
     HHOOK mouseHook_ { nullptr }; ///< The handle to the mouse hook used to be notified of mouse event
+#endif
     KeyStroke deadKey_ = { 0, 0, { 0 }}; ///< The currently active dead key
     bool useLegacyKeyProcessing_ { false }; ///< Should we use the legacy key processing code
     bool isShortcutProcessingEnabled_ { true }; ///< Is shortcut processing enabled?

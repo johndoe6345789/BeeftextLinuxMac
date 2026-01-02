@@ -25,9 +25,14 @@ WaveSound::WaveSound(QString const &path) {
 /// \return true if and only if the file was successfully played.
 //****************************************************************************************************************************************************
 bool WaveSound::play() {
+#ifdef Q_OS_WIN
     if (data_.isEmpty())
         return false;
     return PlaySound(reinterpret_cast<LPCWSTR>(data_.data()), nullptr, SND_MEMORY | SND_NODEFAULT | SND_ASYNC);
+#else
+    // On non-Windows platforms, sound playback is not yet implemented
+    return false;
+#endif
 }
 
 
