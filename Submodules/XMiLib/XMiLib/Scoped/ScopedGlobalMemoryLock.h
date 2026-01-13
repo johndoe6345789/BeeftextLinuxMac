@@ -8,6 +8,8 @@
 #define XMILIB_SCOPED_GLOBAL_MEMORY_LOCK_H
 
 
+#ifdef Q_OS_WIN
+
 namespace xmilib {
 
 
@@ -33,6 +35,7 @@ private: // data members
 
 } // namespace xmilib
 
+#endif // #ifdef Q_OS_WIN
+
 
 #endif // XMILIB_SCOPED_GLOBAL_MEMORY_LOCK_H
-

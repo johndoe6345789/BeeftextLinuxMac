@@ -39,8 +39,10 @@ public slots:
     void clearClipboard() override; ///< Clear the clipboard.
 
 private: // member functions
+#ifdef Q_OS_WIN
     void setBitmapBackup(HANDLE bitmap); ///< Backup a bitmap.
     void freeBitmapBackup(); ///< Free a bitmap backup.
+#endif
 
 private: // data structures
     struct ClipBoardFormatData {
@@ -53,7 +55,9 @@ private: // data structures
 
 private: // data members
     VecSpClipBoardFormatData backup_; ///< The clipboard backup.
+#ifdef Q_OS_WIN
     HBITMAP bitmapBackup_ { nullptr }; ///< The backup of the bitmap object in the clipboard.
+#endif
 };
 
 
